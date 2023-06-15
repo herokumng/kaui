@@ -1,0 +1,167 @@
+<div class="info-wrapper">
+
+  <% display_payment_options = (!dry_run && ((can?(:credit, Kaui::Account) && @invoice.status == 'DRAFT') || (can?(:charge, Kaui::Account) && @invoice.status == 'DRAFT') || (@invoice.balance > 0 && can?(:trigger, Kaui::Payment))))
+     if !(@available_invoice_tags ||= nil).blank? || !(@custom_fields ||= nil).blank? || display_payment_options %>
+      <div class="tag-bar">
+        <% unless @available_invoice_tags.blank? %>
+          <div class="tag-select" onclick="void(0)">
+            <span><i class="fa fa-tag"></i><i class="fa fa-caret-down"></i></span>
+
+            <div class="tag-select-box">
+              <strong>Tag As:</strong>
+              <%= render :partial => 'kaui/invoice_tags/form_bar',
+                         :locals => {:account_id => @account.account_id,
+                                     :invoice_id => @invoice.invoice_id,
+                                     :tag_names => @invoice_tags.map { |tag| tag.tag_definition_name },
+                                     :available_tags => @available_invoice_tags} %>
+            </div>
+          </div>
+        <% end %>
+        <%= render :partial => 'kaui/custom_fields/list_bar',
+                   :locals => {:custom_fields => @custom_fields} %>
+
+        <% if display_payment_options %>
+            <div class="tag-select" onclick="void(0)">
+              <span><i class="fa fa-credit-card"></i><i class="fa fa-caret-down"></i></span>
+
+              <div class="tag-select-box">
+
+                <% if can?(:credit, Kaui::Account) && @invoice.status == 'DRAFT' %>
+                    <%= link_to '<i class="fa fa-plus-square"></i>&nbsp;Add credit'.html_safe,
+                                kaui_engine.new_account_credit_path(@invoice.account_id, :currency => @invoice.currency, :invoice_id => @invoice.invoice_id) %>
+                <% end %>
+                <% if can?(:charge, Kaui::Account) && @invoice.status == 'DRAFT' %>
+                    <%= link_to '<i class="fa fa-plus-square"></i>&nbsp;Create charge'.html_safe,
+                                kaui_engine.new_account_charge_path(@invoice.account_id, :currency => @invoice.currency, :invoice_id => @invoice.invoice_id) %>
+                <% end %>
+                <% if @invoice.balance > 0 && can?(:trigger, Kaui::Payment) %>
+                    <%= link_to '<i class="fa fa-plus-square"></i>&nbsp;Make payment'.html_safe,
+                                kaui_engine.new_account_payment_path(@invoice.account_id, :invoice_id => @invoice.invoice_id) %>
+                <% end %>
+              </div>
+
+            </div>
+        <% end %>
+
+        <% if can?(:void, Kaui::Invoice) && @invoice.status != 'VOID' && @invoice_tags.find { |t| t.tag_definition_name == 'WRITTEN_OFF' }.nil? # The backend will do more comprehensive checks %>
+          <div class="tag-select" onclick="void(0)">
+            <span><i class="fa fa-trash"></i><i class="fa fa-caret-down"></i></span>
+
+            <div class="tag-select-box">
+              <%= form_tag void_invoice_path(:id => @invoice.invoice_id), :method => :delete do %>
+                <%= label_tag :comment, 'Comment', :class => 'col-sm-2 control-label' %>
+                <%= text_area_tag :comment, nil, :rows => 3, :class => 'form-control' %>
+                <%= submit_tag 'Void', :class => 'btn btn-default' %>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+      </div>
+  <% end %>
+
+  <table id="invoice-table" class="table table-condensed mobile-data">
+    <thead>
+    <tr>
+      <% unless (@available_invoice_item_tags ||= nil).blank? && (@custom_fields_per_invoice_item ||= nil).blank? %>
+          <th></th>
+      <% end %>
+      <th>Description</th>
+      <th>Start date</th>
+      <th>End date</th>
+      <th>Subscription ID</th>
+      <th>Amount</th>
+      <th>Comments</th>
+      <th></th>
+    </tr>
+    </thead>
+    <tbody>
+    <% @invoice.items.each do |item| %>
+        <tr id=<%= "invoice_item_#{item.invoice_item_id}_#{item.linked_invoice_item_id}" %>>
+          <% unless @available_invoice_item_tags.blank? && @custom_fields_per_invoice_item.blank? %>
+              <td class="inline-row-tag-bar">
+                <div class="tag-bar tag-bar-no-border">
+                  <% unless @available_invoice_item_tags.blank? %>
+                      <div class="tag-select" onclick="void(0)">
+                        <span><i class="fa fa-tag"></i><i class="fa fa-caret-down"></i></span>
+
+                        <div class="tag-select-box">
+                          <strong>Tag as:</strong>
+
+                          <%= render :partial => 'kaui/bundle_tags/form_bar',
+                                     :locals => {:params => { :invoice_id => item.invoice_id, :account_id => item.account_id},
+                                                 :tag_names => (@tags_per_invoice_item[item.invoice_item_id] || []).map { |tag| tag.tag_definition_name },
+                                                 :available_tags => @available_invoice_item_tags,
+                                                 :update_tags_path => update_invoice_items_tags_path(item.invoice_item_id)
+                                     } %>
+                        </div>
+                      </div>
+                  <% end %>
+
+                  <%= render :partial => 'kaui/custom_fields/list_bar',
+                             :locals => {:custom_fields => @custom_fields_per_invoice_item[item.invoice_item_id] || []} %>
+                </div>
+
+              </td>
+          <% end %>
+          <td onClick="hightlightLinkedItems('<%= item.invoice_item_id %>', '<%= item.linked_invoice_item_id %>'); return false;"><%= item.pretty_plan_name.blank? || !item.item_type.in?(%w{USAGE RECURRING}) ? item.description : item.pretty_plan_name %></td>
+          <td onClick="hightlightLinkedItems('<%= item.invoice_item_id %>', '<%= item.linked_invoice_item_id %>'); return false;"><%= item.start_date.html_safe if item.start_date %></td>
+          <td onClick="hightlightLinkedItems('<%= item.invoice_item_id %>', '<%= item.linked_invoice_item_id %>'); return false;"><%= item.end_date.html_safe if item.end_date %></td>
+          <td onClick="hightlightLinkedItems('<%= item.invoice_item_id %>', '<%= item.linked_invoice_item_id %>'); return false;"><%= item.subscription_id %></td>
+          <td onClick="hightlightLinkedItems('<%= item.invoice_item_id %>', '<%= item.linked_invoice_item_id %>'); return false;"><%= humanized_money_with_symbol Kaui::InvoiceItem.amount_to_money(item) %>
+            (<%= item.currency %>)
+          </td>
+          <td onClick="hightlightLinkedItems('<%= item.invoice_item_id %>', '<%= item.linked_invoice_item_id %>'); return false;"><%= item.audit_logs.map { |log| log.comments }.compact.join('<br/>') if item.audit_logs.present? %></td>
+          <td>
+            <% if can? :item_adjust, Kaui::Invoice %>
+                <nobr>
+                  <%= link_to 'Adjust',
+                              kaui_engine.edit_account_invoice_item_path(@invoice.account_id, item.invoice_item_id, :invoice_id => @invoice.invoice_id),
+                              :class => "btn btn-xs #{'disabled' unless item.amount > 0}" %>
+                </nobr>
+            <% end %>
+          </td>
+        </tr>
+    <% end %>
+    </tbody>
+  </table>
+  <table class="invoice-totals">
+    <tr>
+      <th></th>
+      <td></td>
+    </tr>
+    <tr>
+      <th>Invoice Total:</th>
+      <td><%= humanized_money_with_symbol @invoice.amount_to_money %> (<%= @invoice.currency %>)</td>
+    </tr>
+    <tr>
+      <th>Resulting available credits:</th>
+      <td><%= humanized_money_with_symbol @invoice.credit_adjustment_to_money %> (<%= @invoice.currency %>)</td>
+    </tr>
+    <tr>
+      <th>Refunded:</th>
+      <td><%= humanized_money_with_symbol @invoice.refund_adjustment_to_money %> (<%= @invoice.currency %>)</td>
+    </tr>
+    <tr>
+      <th>Balance:</th>
+      <td><%= humanized_money_with_symbol @invoice.balance_to_money %> (<%= @invoice.currency %>)</td>
+    </tr>
+  </table>
+
+</div>
+
+<script language="javascript">
+    function hightlightLinkedItems(invoice_item_id, linked_invoice_item_id) {
+        $("#invoice-table tr:gt(0)").each(function (index) {
+            var ids = $(this).attr("id").split("_");
+            var item_id = ids[2];
+            var linked_item_id = ids[3];
+            if ((invoice_item_id.length > 0 && item_id == invoice_item_id) ||
+                    (linked_invoice_item_id.length > 0 && item_id == linked_invoice_item_id) ||
+                    (invoice_item_id.length > 0 && invoice_item_id == linked_item_id)) {
+                $(this).css("background", "yellow");
+            } else {
+                $(this).css("background", "none");
+            }
+        });
+    }
+</script>

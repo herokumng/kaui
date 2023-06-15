@@ -1,0 +1,165 @@
+<div class="col-md-6 col-xs-12">
+
+  <div class="column-block">
+
+    <h1>Billing Info</h1>
+
+    <div class="info-wrapper">
+
+      <% if can?(:trigger, Kaui::Payment) || can?(:credit, Kaui::Account) || can?(:charge, Kaui::Account) %>
+          <div class="tag-bar tag-bar-breathe">
+            <div class="toggler">
+              <div class="toggle">
+                <div class="actions">
+                  <!-- Payment, Credit then Charge. Same ordering as in the billing timeline -->
+                  <% if can?(:trigger, Kaui::Payment) && @account.account_balance.present? && @account.account_balance > 0 %>
+                      <%= link_to '<i class="fa fa-plus-square"></i>&nbsp;Pay all invoices'.html_safe,
+                                  kaui_engine.pay_all_invoices_account_path(@account.account_id),
+                                  :method => :post %>
+                  <% end %>
+                  <% if can? :credit, Kaui::Account %>
+                      <%= link_to '<i class="fa fa-plus-square"></i>&nbsp;Add credit'.html_safe,
+                                  kaui_engine.new_account_credit_path(@account.account_id, :currency => @account.currency) %>
+                  <% end %>
+                  <% if can? :charge, Kaui::Account %>
+                      <%= link_to '<i class="fa fa-plus-square"></i>&nbsp;Create charge'.html_safe,
+                                  kaui_engine.new_account_charge_path(@account.account_id, :currency => @account.currency) %>
+                  <% end %>
+                  <% if deposit_plugin_available? %>
+                      <%= link_to '<i class="fa fa-plus-square"></i>&nbsp;Create deposit'.html_safe,
+                                  deposit_engine.collection_index_path(:account_id => @account.account_id, :currency => @account.currency) %>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+          </div>
+      <% end %>
+
+      <div class="row">
+        <div class="col-sm-12">
+          <div class="fix-position">
+            <table class="transparent" <%= billing_info_margin.html_safe %>>
+              <tr>
+                <th>Account balance</th>
+                <td>
+                  <% if @account.account_balance.nil? %>
+                      <span class='label'>N/A</span>
+                  <% elsif @account.account_balance <= 0 %>
+                      <span class="label label-success"><%= humanized_money_with_symbol @account.balance_to_money %></span>
+                  <% else %>
+                      <span class="label label-danger"><%= humanized_money_with_symbol @account.balance_to_money %></span>
+                  <% end %>
+                </td>
+              </tr>
+              <tr>
+                <th>Account credit</th>
+                <td>
+                  <% if @account.account_cba.nil? %>
+                      <span class='label'>N/A</span>
+                  <% elsif @account.account_cba >= 0 %>
+                      <span class="label label-success"><%= humanized_money_with_symbol @account.cba_to_money %></span>
+                  <% else %>
+                      <span class="label label-danger"><%= humanized_money_with_symbol @account.cba_to_money %></span>
+                  <% end %>
+                </td>
+              </tr>
+              <tr>
+                <th>Overdue status</th>
+                <td>
+                  <% if @overdue_state.nil? %>
+                      <span class='label'>N/A</span>
+                  <% elsif @overdue_state.is_clear_state %>
+                      <span class='label label-success'>Good</span>
+                  <% else %>
+                      <span class='label label-danger'><%= @overdue_state.name %></span>
+                  <% end %>
+                </td>
+              </tr>
+              <tr>
+                <th>Bill cycle day</th>
+                <td>
+                  <% if @account.bill_cycle_day_local > 0  %>
+                      <span class='label'><%= @account.bill_cycle_day_local %> (user timezone)</span>
+                  <% else %>
+                      <span class='label'>N/A</span>
+                  <% end %>
+                </td>
+              </tr>
+              <% if can? :trigger, Kaui::Invoice %>
+                  <tr>
+                    <th>Next Invoice Date</th>
+                    <td><span class='label' id='next-invoice-date'>N/A</span></td>
+                  </tr>
+              <% end %>
+              <% if email_notifications_plugin_available? %>
+                <tr>
+                  <th>
+                    Email Notifications
+                    <%= link_to('<i class="fa fa-cog" aria-hidden="true"></i>'.html_safe,
+                    '#configureEmailNotification',
+                    data: { name: @account.name, account_id: @account.account_id,
+                            events: @email_notification_configuration.map { |event| event[:eventType] }.join(', '),
+                            toggle: 'modal', target: '#configureEmailNotification'}) %>
+                  </th>
+                  <td>
+                    <% @email_notification_configuration.each do |configuration|%>
+                        - <%= configuration[:eventType] %><br/>
+                    <% end %>
+                  </td>
+                </tr>
+              <% end %>
+            </table>
+
+            <% if can? :trigger, Kaui::Invoice %>
+                <div style="padding-bottom: 50px;">
+                  <%= form_tag kaui_engine.trigger_invoice_path(params.to_h), :method => :post do %>
+                      <div class="form-group">
+                        <%= label_tag :target_date, 'Trigger invoice generation', :class => 'col-sm-6 control-label', :style => 'padding-left: 0;' %>
+                        <div class="col-sm-3">
+                          <input class="form-control" id="target_date" name="target_date" type="text" data-provide="datepicker" data-date-format="yyyy-mm-dd" data-date-today-highlight="true">
+                        </div>
+                        <% if can? :dry_run, Kaui::Invoice %>
+                          <div style="width: 14.5%; float: left; padding: 0;">
+                            <%= label_tag :dry_run do %>
+                                <%= check_box_tag :dry_run, '1', true %>&nbsp;<small>Dry-run</small>
+                            <% end %>
+                          </div>
+                        <% end %>
+                        <div class="col-xs-1" style="padding: 0;">
+                          <%= button_tag '<i class="fa fa-magic"></i>'.html_safe, :class => 'btn btn-xs' %>
+                        </div>
+                      </div>
+                  <% end %>
+                </div>
+            <% end %>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<%= javascript_tag do %>
+    $(document).ready(function() {
+      if ($("#next-invoice-date").length) {
+        var next_invoice_date_path = Routes.kaui_engine_next_invoice_date_path('<%= @account.account_id %>', {format: "json"});
+        var populateNextInvoiceDate = function (next_invoice_date) {
+          if (next_invoice_date === null) {
+            return;
+          }
+
+          $("#next-invoice-date").text(next_invoice_date);
+        };
+
+        $.ajax({
+          type: 'GET',
+          contentType: 'application/json',
+          dataType: 'json',
+          url: next_invoice_date_path
+        }).done(populateNextInvoiceDate);
+      }
+    });
+<% end %>

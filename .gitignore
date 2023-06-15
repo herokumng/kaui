@@ -1,0 +1,24 @@
+.bundle/
+log/*.log
+pkg/
+test/dummy/db/*.sqlite3
+test/dummy/log/*.log
+test/dummy/tmp/
+test/dummy/.sass-cache
+test/dummy/public
+.idea
+sandbox
+foo
+# Local testing credentials
+config/initializers/killbill_client.rb
+coverage
+.DS_Store
+Gemfile.lock
+*.sublime-project
+*.sublime-workspace
+.byebug_history
+.generators
+.rakeTasks
+node_modules/
+test/dummy/app/assets/javascripts/routes.js
+test/dummy/app/assets/javascripts/routes.d.ts

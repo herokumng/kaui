@@ -1,0 +1,157 @@
+<div id="overdue_config_simple">
+
+    <div>
+      <h1>Overdue Configuration
+        <a class='btn btn-xs' href="javascript:void(0);" onclick="switch_overdue_xml_config();">Enable Advanced Configuration
+          (Upload XML)</a>
+      </h1>
+    </div>
+
+    <%= form_for @overdue, :url => {:action => :modify_overdue_config}, :html => {:class => 'form-horizontal'} do |f| %>
+
+      <a class='btn btn-xs' href="javascript:void(0);" onclick="overdue_new_state();" id="new_state"><%= '<i class="fa fa-plus-square"></i>'.html_safe + " new overdue states" %></a>
+
+        <table id="existing-overdue-config-for-tenants" class="table table-condensed">
+          <thead>
+          <tr>
+            <th>Name</th>
+            <th>External Message</th>
+            <th>Block Subscription Changes</th>
+            <th>Subscription Cancellation</th>
+            <th>Days since earliest unpaid invoice</th>
+            <th>Tag inclusion</th>
+            <th>Tag exclusion</th>
+            <th>Number of unpaid invoices</th>
+            <th>Total unpaid invoice balance</th>
+            <th></th>
+          </tr>
+          </thead>
+          <tbody>
+          <%= hidden_field_tag(:id, @tenant.id) %>
+
+          <% @overdue.overdue_states.reverse.each_with_index do |state, idx| %>
+              <tr class="overdue_state_<%= state %>" id="tr_state_<%= idx %>">
+                <%= f.fields 'states' do |state_form_group| %>
+                  <%= state_form_group.fields_for "#{idx}", state do |state_form| %>
+                    <td><%= state_form.text_field :name %></td>
+                    <td><%= state_form.text_field :external_message %></td>
+                    <td><%= state_form.select :is_block_changes, options_for_select([true, false ], state.is_block_changes), :class => 'form-control'  %></td>
+                    <td><%= state_form.select :subscription_cancellation_policy, options_for_select([:NONE, :POLICY_NONE, :POLICY_IMMEDIATE, :POLICY_END_OF_TERM], state.subscription_cancellation), :class => 'form-control' %></td>
+                    <%= state_form.fields_for 'condition' do |condition| %>
+                      <td><%= condition.number_field :time_since_earliest_unpaid_invoice_equals_or_exceeds, :value => state.condition.time_since_earliest_unpaid_invoice_equals_or_exceeds.number %></td>
+                      <td><%= condition.select :control_tag_inclusion, options_for_select([:NONE, :AUTO_PAY_OFF, :AUTO_INVOICING_OFF, :OVERDUE_ENFORCEMENT_OFF, :MANUAL_PAY, :TEST, :PARTNER], state.condition.control_tag_inclusion), :class => 'form-control'  %></td>
+                      <td><%= condition.select :control_tag_exclusion, options_for_select([:NONE, :AUTO_PAY_OFF, :AUTO_INVOICING_OFF, :OVERDUE_ENFORCEMENT_OFF, :MANUAL_PAY, :TEST, :PARTNER], state.condition.control_tag_exclusion), :class => 'form-control'%></td>
+                      <td><%= condition.number_field :number_of_unpaid_invoices_equals_or_exceeds, :value => state.condition.number_of_unpaid_invoices_equals_or_exceeds %></td>
+                      <td><%= condition.number_field :total_unpaid_invoice_balance_equals_or_exceeds, :step => :any, :value => state.condition.total_unpaid_invoice_balance_equals_or_exceeds %></td>
+                    <% end %>
+                  <% end %>
+                <% end %>
+                <td><a class='btn btn-xs' href="javascript:void(0);" onclick="overdue_delete_state(this);" id="delete_state_<%= idx %>"><%= '<i class="fa fa-times"></i>'.html_safe %></a></td>
+              </tr>
+          <% end %>
+        </tbody>
+        </table>
+        <div class="form-group">
+          <div class="col-sm-offset-3 col-sm-9">
+            <%= submit_tag 'Save', :class => 'btn btn-default' %>
+          </div>
+        </div>
+  <% end %>
+</div>
+
+
+<div id="overdue_config_xml">
+  <hr/>
+  <h1>Upload Overdue XML Config
+    <a class='btn btn-xs' href="javascript:void(0);" onclick="switch_overdue_basic_config();">Enable Simple View</a>
+  </h1>
+  <% if can? :config_upload, Kaui::AdminTenant %>
+      <%= form_tag({:action => :upload_overdue_config}, :method => 'post', :multipart => true, :class => 'form-horizontal') do %>
+          <%= hidden_field_tag(:id, @tenant.id) %>
+
+          <div class="form-group">
+            <div class="col-sm-10">
+              <%= file_field_tag 'overdue', :class => 'form-control', :required => true %>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="col-sm-10">
+              <%= submit_tag 'Upload', :class => 'btn btn-default' %>
+            </div>
+          </div>
+      <% end %>
+  <% else %>
+      You don't have the permission to upload the XML config
+  <% end %>
+</div>
+
+<%= javascript_tag do %>
+
+
+function switch_overdue_xml_config() {
+    $('#overdue_config_simple').hide();
+    $('#overdue_config_xml').show();
+}
+
+function switch_overdue_basic_config() {
+    $('#overdue_config_xml').hide();
+    $('#overdue_config_simple').show();
+}
+
+
+function overdue_new_state() {
+    /* Compute max index value to assign new rows with unsued index */
+    var max_idx = $.map($('[id^=delete_state_]'), function(e, i) {
+        return e.id.split("delete_state_")[1] }
+    ).sort(function(a, b) {
+        return b - a
+    })[0];
+
+    /* Clone existing row and reset id based on max_idx */
+    var row = $('#existing-overdue-config-for-tenants tbody>tr:last').clone(true);
+    var row_idx = (parseInt(max_idx) + 1).toString();
+    row.attr('id', "tr_state_" + row_idx);
+    row.children("td:last").children('a').attr('id', "delete_state_" + row_idx);
+
+    /* update the index on content */
+    row.find('td').each(function(){
+        $(this).contents().each(function(){
+
+          if ($(this).attr('name') != undefined){
+            $(this).attr('name',($(this).attr('name')).replace(max_idx,row_idx));
+          }
+
+          if ($(this).attr('id') != undefined){
+            $(this).attr('id',($(this).attr('id')).replace(max_idx,row_idx));
+          }
+        });
+    });
+
+    /* Attach row into dom */
+    row.insertAfter('#existing-overdue-config-for-tenants tbody>tr:last');
+
+    /* Also reset the disabled state */
+    $('#' + row.attr('id') + ' :input').each( function() {
+    $(this).prop('disabled', false); }
+    );
+
+    /* The cloned version may need to be displayed */
+    row.show();
+}
+
+function overdue_delete_state(obj) {
+    var idx = obj.id.split("delete_state_")[1];
+    /* Disable the entry in the form */
+    $("#tr_state_" + idx + " :input").each( function() {
+        $(this).prop('disabled', true); }
+    );
+    /* Hide the table row */
+    $("#tr_state_" + idx).hide();
+};
+
+$(document).ready(function() {
+    switch_overdue_basic_config();
+});
+
+
+<% end %>

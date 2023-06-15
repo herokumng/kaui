@@ -1,0 +1,34 @@
+<div class="row">
+  <%= render :partial => 'account_info' %>
+
+  <%= render :partial => 'billing_info' %>
+</div>
+<div class="row">
+  <%= render :partial => 'personal_info' %>
+
+  <%= render :partial => 'payment_methods' %>
+</div>
+
+
+<%= render :partial => 'link_parent_modal' %>
+
+<% if email_notifications_plugin_available? %>
+  <%= render :partial => 'kenui/email_notifications/configure_events_modal' %>
+<% end %>
+
+<% if can_close_account? %>
+  <%= render :partial => 'close_account_modal' %>
+<% end %>
+
+<%= javascript_tag do %>
+  function disableLinks() {
+    $('a.btn.disabled').click(function (e) {
+      // e.preventDefault(); is not enough here
+      return false;
+    });
+  }
+
+  $(document).ready(function() {
+    disableLinks();
+  });
+<% end %>

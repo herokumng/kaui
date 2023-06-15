@@ -1,0 +1,28 @@
+<div class="col-md-6 col-xs-12">
+
+  <div class="column-block">
+
+    <h1>Payment Methods
+      <% if can? :create, Kaui::PaymentMethod %>
+          <%= link_to '<i class="fa fa-plus-square"></i>'.html_safe,
+                      kaui_engine.new_payment_method_path(:account_id => @account.account_id),
+                      :class => 'btn btn-xs' %>
+          <%= form_tag kaui_engine.refresh_payment_methods_path(params.to_h), :method => :post, :class => 'form-force-inline form-right' do %>
+              <%= button_tag '<i class="fa fa-refresh"></i>'.html_safe, :class => 'btn btn-xs' %>
+          <% end %>
+      <% end %>
+    </h1>
+
+    <% unless @payment_methods.empty? %>
+        <div class="info-wrapper">
+
+          <%= render :partial => 'kaui/payment_methods/payment_methods_table', :locals => {:account => @account,
+                                                                                           :payment_methods => @payment_methods,
+                                                                                           :last_transaction_by_payment_method_id => @last_transaction_by_payment_method_id} %>
+
+        </div>
+    <% end %>
+
+  </div>
+
+</div>

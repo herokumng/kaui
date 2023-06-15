@@ -1,0 +1,188 @@
+<div id="catalog_simple">
+
+  <div>
+    <h1>Catalog Configuration
+      <a class='btn btn-xs' href="javascript:void(0);" onclick="switch_xml_config();">Enable Advanced Configuration (Upload XML)</a>
+    </h1>
+  </div>
+  <%= form_for @simple_plan, :url => {:action => :create_simple_plan}, :html => {:class => 'form-horizontal'} do |f| %>
+
+      <%= hidden_field_tag(:id, @tenant.id) %>
+      <div class="form-group" id="form_category">
+        <%= f.label :product_category, 'Product Category', :class => 'col-sm-3 control-label' %>
+        <div class="col-sm-4">
+          <%= f.select :product_category, options_for_select(@product_categories.map {|p| [humanized_product_category(p), p] }, @simple_plan.product_category), :class => 'form-control' %>
+        </div>
+      </div>
+      <div class="form-group">
+        <%= f.label :product_name, 'Product Name', :class => 'col-sm-3 control-label' %>
+        <div class="col-sm-4">
+          <%= f.text_field :product_name,
+                           :class => 'form-control',
+                           :required => true,
+                           :pattern => "^[a-zA-Z_][\\w\\.-]*$",
+                           :title => 'xs:ID format: it must start with a letter or underscore, and can only contain letters, digits, underscores, hyphens, and periods',
+                           :known_base => @available_base_products.join(","),
+                           :known_ao => @available_ao_products.join(","),
+                           :known_std => @available_standalone_products.join(","),
+                           :ao_mappings => @ao_mapping %>
+        </div>
+      </div>
+      <div class="form-group">
+        <%= f.label :plan_id, 'Plan Name', :class => 'col-sm-3 control-label' %>
+        <div class="col-sm-4">
+          <%= f.text_field :plan_id,
+                           :class => 'form-control',
+                           :required => true,
+                           :pattern => "^[a-zA-Z_][\\w\\.-]*$",
+                           :title => 'xs:ID format: it must start with a letter or underscore, and can only contain letters, digits, underscores, hyphens, and periods' %>
+        </div>
+      </div>
+      <div class="form-group" id="form_base_products">
+        <%= f.label :available_base_products, 'Available Base Products', :class => 'col-sm-3 control-label' %>
+        <div class="col-sm-4">
+          <%= f.select :available_base_products, options_for_select(@available_base_products), {}, {:multiple => true, :class => "form-control"} %>
+        </div>
+      </div>
+      <div class="form-group">
+        <%= f.label :amount, 'Amount', :class => 'col-sm-3 control-label' %>
+        <div class="col-sm-4">
+          <%= f.number_field :amount, :class => 'form-control', :step => :any %>
+        </div>
+      </div>
+      <div class="form-group">
+        <%= f.label :currency, 'Currency', :class => 'col-sm-3 control-label' %>
+        <div class="col-sm-4">
+          <%= f.select :currency, currencies, {:selected => @simple_plan.currency}, :class => 'form-control' %>
+        </div>
+      </div>
+      <div class="form-group">
+        <%= f.label :billing_period, 'Billing Period', :class => 'col-sm-3 control-label' %>
+        <div class="col-sm-4">
+          <%= f.select :billing_period, options_for_select(@billing_period.map {|bp| [humanized_billing_period(bp), bp] }, @simple_plan.billing_period), :class => 'form-control' %>
+        </div>
+      </div>
+      <div class="form-group">
+        <%= f.label :trial_length, 'Trial Length', :class => 'col-sm-3 control-label' %>
+        <div class="col-sm-4">
+          <%= f.number_field :trial_length, :class => 'form-control', :type => 'number', :min => 0, :step => 1 %>
+        </div>
+      </div>
+      <div class="form-group">
+        <%= f.label :trial_time_unit, 'Trial Time Unit', :class => 'col-sm-3 control-label' %>
+        <div class="col-sm-4">
+          <%= f.select :trial_time_unit, options_for_select(@time_units.map {|tu| [humanized_time_unit(tu), tu]}, @simple_plan.trial_time_unit), :class => 'form-control' %>
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="col-sm-offset-3 col-sm-9">
+          <%= submit_tag 'Save', :class => 'btn btn-default' %>
+        </div>
+      </div>
+  <% end %>
+</div>
+
+
+<div id="catalog_xml">
+  <div>
+    <h1>Advanced Configuration
+      <a class="btn btn btn-xs" href="javascript:void(0);" onclick="switch_basic_config();">Enable Simple Configuration</a>
+    </h1>
+  </div>
+
+
+  <%= form_tag({:action => :upload_catalog}, :method => 'post', :multipart => true, :class => 'form-horizontal') do %>
+      <%= hidden_field_tag(:id, @tenant.id) %>
+
+      <div class="form-group">
+        <div class="col-sm-10">
+          <%= file_field_tag 'catalog', :class => 'form-control', :required => true %>
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="col-sm-10">
+          <%= submit_tag 'Upload', :class => 'btn btn-default' %>
+        </div>
+      </div>
+  <% end %>
+</div>
+
+<%= javascript_tag do %>
+
+function known_products() {
+    var result = [];
+    var selected_category = $("#simple_plan_product_category option:selected").val();
+    if (selected_category == 'BASE') {
+        result = $('#simple_plan_product_name').attr('known_base');
+    } else if (selected_category == 'ADD_ON') {
+        result = $('#simple_plan_product_name').attr('known_ao');
+    } else {
+        result = $('#simple_plan_product_name').attr('known_std');
+    }
+    if (result) {
+      return result.split(",");
+    } else {
+      return [];
+    }
+}
+
+function switch_xml_config() {
+    $('#catalog_simple').hide();
+    $('#catalog_xml').show();
+}
+
+function recompute_available_base_products_for_ao() {
+    if ($("#simple_plan_product_category option:selected" ).val() != 'ADD_ON') {
+        return;
+    }
+    var product_name = $('#simple_plan_product_name').val();
+
+    var ao_mappings_str = $('#simple_plan_product_name').attr('ao_mappings');
+    if (ao_mappings_str != "") {
+        var ao_mappings = {};
+        $.map(ao_mappings_str.split(";"), function(el) { sel = el.split(':'); ao_mappings[sel[0]] = sel[1].split(',') });
+        if (ao_mappings[product_name] !=  undefined) {
+            $('#simple_plan_available_base_products').val(ao_mappings[product_name]);
+            return;
+        }
+    }
+    /* Unless we found a mapping to update, we clear the existing mapping */
+    $('#simple_plan_available_base_products').val([]);
+}
+
+function display_available_base_products_for_ao() {
+    if ($("#simple_plan_product_category option:selected" ).val() == 'ADD_ON') {
+        $('#form_base_products').show();
+    } else {
+        $('#form_base_products').hide();
+    }
+}
+
+function switch_basic_config() {
+    $('#catalog_xml').hide();
+    $('#catalog_simple').show();
+}
+
+
+$(document).ready(function() {
+    switch_basic_config();
+
+    $('#simple_plan_product_name').autocomplete({
+        source: function(query, process) {
+            process(known_products());
+        }
+    });
+
+    $('#simple_plan_product_category').change(function() {
+        display_available_base_products_for_ao();
+    });
+    display_available_base_products_for_ao();
+
+
+    $('#simple_plan_product_name').on('mouseleave', function() {
+        recompute_available_base_products_for_ao();
+    });
+});
+
+<% end %>
+

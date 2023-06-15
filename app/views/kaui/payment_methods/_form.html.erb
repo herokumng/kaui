@@ -1,0 +1,39 @@
+<%= form_for @payment_method, :html => {:class => 'form-horizontal'} do |f| %>
+    <%= f.hidden_field :account_id %>
+
+    <div class="form-group">
+      <%= f.label :external_key, 'External key', :class => 'col-sm-3 control-label' %>
+      <div class="col-sm-9">
+        <%= f.text_field :external_key, :class => 'form-control' %>
+        <div class="payment_method_external_key_invalid_msg text-danger">
+          Warning! External key already in use.
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
+      <%= f.label :plugin_name, 'Plugin name', :class => 'col-sm-3 control-label' %>
+      <div class="col-sm-9">
+        <%= f.text_field :plugin_name, :class => 'form-control', :required => true %>
+      </div>
+    </div>
+    <div id="creditcard">
+      <%= render :partial => 'new_creditcard_payment_method' %>
+    </div>
+    <div id="properties" class="col-sm-offset-3 col-sm-9">
+      <%= render :partial => 'plugin_properties' %>
+    </div>
+    <div class="form-group">
+      <div class="col-sm-offset-3 col-sm-9">
+        <div class="checkbox">
+          <%= f.label :is_default do %>
+              <%= f.check_box :is_default %>Default payment method?
+          <% end %>
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="col-sm-offset-3 col-sm-9">
+        <%= submit_tag 'Save', :class => 'btn btn-default' %>
+      </div>
+    </div>
+<% end %>

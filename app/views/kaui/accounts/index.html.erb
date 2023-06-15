@@ -1,0 +1,77 @@
+<div class="search">
+
+  <div class="column-block">
+
+    <% if @search_query.present? %>
+        <h1>Showing search results for "<%= @search_query %>"</h1>
+    <% else %>
+        <h1>Showing all accounts</h1>
+    <% end %>
+
+    <table id="accounts-table" class="table table-condensed mobile-data">
+      <thead>
+      <tr>
+        <th></th>
+        <th>ID</th>
+        <% Kaui.account_search_columns.call()[0].each do |title| %>
+          <th><%= title %></th>
+        <% end %>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td colspan="1" class="dataTables_empty">Loading data from server</td>
+      </tr>
+      </tbody>
+    </table>
+
+  </div>
+
+</div>
+
+<%= javascript_tag do %>
+$(document).ready(function() {
+
+  var table = $('#accounts-table').DataTable({
+    "dom": "<'row'r>t<'row'<'col-md-6'i><'col-md-6'p>>",
+    "pagingType": <% if @max_nb_records.nil? -%>"simple"<% else -%>"full_numbers"<% end -%>,
+    "language": {
+      <!-- See DefaultPaginationSqlDaoHelper.java -->
+      "info": <% if @max_nb_records.nil? -%>"Showing _START_ to _END_ of <%= number_with_delimiter(Kaui::EngineControllerUtil::SIMPLE_PAGINATION_THRESHOLD) -%>+ entries"<% else -%>"Showing _START_ to _END_ of _TOTAL_ entries"<% end -%>
+    },
+    "pageLength": <%= @limit %>,
+    "displayStart": <%= @offset %>,
+    <% if @search_query.blank? %>
+      "ordering": false,
+    <% elsif !@ordering.blank? %>
+      "order": [[ 1, "<%= @ordering %>" ]],
+    <% end %>
+    "processing": true,
+    "serverSide": true,
+    "search": {"search": "<%= @search_query %>"},
+    "ajax": "<%= accounts_pagination_path(:ordering => @ordering, :format => :json) %>",
+    "columnDefs": [
+    { "orderable": false, "targets": 0, "createdCell": function (td, cellData, rowData, row, col) {
+        $(td).css('padding-left', '20px');
+        $(td).css('width', '60px');
+
+    } }
+    ],
+    drawCallback: function() {
+        setObjectIdPopover();
+    }
+  });
+
+  <!-- When we don't know the total number of pages, we need to hide the legend and next button manually -->
+  <% if @max_nb_records.nil? %>
+    $('#accounts-table').on('draw.dt', function() {
+      $.noConflict();
+      var noMoreData = table.column(0)
+                            .data()
+                            .length == 0;
+      $(".next.paginate_button").toggleClass("disabled", noMoreData);
+      $(".dataTables_info").toggle(!noMoreData);
+    });
+  <% end %>
+});
+<% end %>
